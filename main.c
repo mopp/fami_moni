@@ -15,10 +15,9 @@ unsigned char const PALETTES[] = {
 };
 
 unsigned char const* MSG_COMMAND_FAILED = "Invalid command.";
-unsigned char const* ENABLE_CHARS = "0123456789ABCDEF /.*?;";
+unsigned char const* ENABLE_CHARS = "0123456789ABCDEF/.*?";
 #define PROMPT_CHAR '>'
-#define ENTER_CHAR ';'
-#define ENABLE_CHARS_SIZE (22 - 1)
+#define ENABLE_CHARS_SIZE (20 - 1)
 
 #define SPRITE_ATTR_V_INVERSE 0x80
 #define SPRITE_ATTR_H_INVERSE 0x40
@@ -93,7 +92,7 @@ int main(void)
 
         // Blink corsor.
         ++blink_counter;
-        if (blink_counter == 30) {
+        if (blink_counter == 20) {
             cursor_palette ^= 0x03;
             cursor_update();
             blink_counter = 0;
@@ -116,39 +115,58 @@ int main(void)
                 ++current_char_index;
             }
             printc_keep_positions(ENABLE_CHARS[current_char_index]);
-        } else if (joypad_get_event(JOYPAD_A) == JOYPAD_EVENT_PRESSED) {
-            input_char = ENABLE_CHARS[current_char_index];
-            if (input_char == ENTER_CHAR) {
-                if (input_buffer_index == 0) {
-                    continue;
-                }
+        } else if (joypad_get_event(JOYPAD_START) == JOYPAD_EVENT_PRESSED) {
+            // Execute input command.
+            if (input_buffer_index == 0) {
+                continue;
+            }
 
-                // Inputting line is finished.
-                input_buffer[input_buffer_index] = '\0';
-                input_buffer_index = 0;
+            // Clear character at current position.
+            printc_keep_positions(' ');
 
-                newline_positions(&input_x, &input_y);
-                execute_command(input_buffer);
+            // Inputting line is finished.
+            input_buffer[input_buffer_index] = '\0';
+            input_buffer_index = 0;
 
-                // Synchronize position.
-                cursor_y = input_y;
-                cursor_x = 1;
+            newline_positions(&input_x, &input_y);
+            execute_command(input_buffer);
 
-                // Print newline prompt.
-                printc(PROMPT_CHAR);
-            } else {
+            // Synchronize position.
+            cursor_y = input_y;
+            cursor_x = 1;
+
+            // Print newline prompt.
+            printc(PROMPT_CHAR);
+
+            cursor_update();
+            current_char_index = 0;
+            printc_keep_positions(ENABLE_CHARS[current_char_index]);
+        } else {
+            input_char = 0;
+            if (joypad_get_event(JOYPAD_A) == JOYPAD_EVENT_PRESSED) {
+                // Input a character.
+                input_char = ENABLE_CHARS[current_char_index];
+            } else if (joypad_get_event(JOYPAD_B) == JOYPAD_EVENT_PRESSED) {
+                // Input space.
+                input_char = ' ';
+
+                // Clear character at current position.
+                printc_keep_positions(' ');
+            }
+
+            if (input_char != 0) {
                 // Input character is decided.
-                input_buffer[input_buffer_index] = ENABLE_CHARS[current_char_index];
+                input_buffer[input_buffer_index] = input_char;
                 ++input_buffer_index;
 
                 // Prepare for inputting next character.
                 shift_positions(&input_x, &input_y);
                 shift_positions(&cursor_x, &cursor_y);
-            }
 
-            cursor_update();
-            current_char_index = 0;
-            printc_keep_positions(ENABLE_CHARS[current_char_index]);
+                cursor_update();
+                current_char_index = 0;
+                printc_keep_positions(ENABLE_CHARS[current_char_index]);
+            }
         }
     }
 
@@ -291,6 +309,7 @@ void printc_keep_positions(unsigned char c)
 
 void draw_sprite(unsigned char sprite_number, unsigned char tile_number, unsigned char x, unsigned char y, unsigned char attr)
 {
+    waitvblank();
     PPU.sprite.address = sprite_number * 4;
     PPU.sprite.data = y;
     PPU.sprite.data = tile_number;
