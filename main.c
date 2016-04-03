@@ -50,12 +50,10 @@ void set_scroll(unsigned char, unsigned char);
 unsigned char newline_positions(unsigned char*, unsigned char*);
 unsigned char shift_positions(unsigned char*, unsigned char*);
 void unshift_positions(unsigned char*, unsigned char*);
-void putchar_xy(unsigned char, unsigned char, unsigned char);
 void putchar(unsigned char);
 void putchar_keep_positions(unsigned char);
 void draw_sprite(unsigned char, unsigned char, unsigned char, unsigned char, unsigned char);
 void cursor_update(void);
-void cursor_move(unsigned char, unsigned char);
 void cursor_invert_color(void);
 void joypad_load_states(void);
 unsigned char joypad_get_event(unsigned char);
@@ -245,9 +243,16 @@ void unshift_positions(unsigned char* x, unsigned char* y)
 }
 
 
-void putchar_xy(unsigned char c, unsigned char x, unsigned char y)
+void putchar(unsigned char c)
 {
-    unsigned int addr = 0x2000 + y * 32 + x;
+    putchar_keep_positions(c);
+    shift_positions(&input_x, &input_y);
+}
+
+
+void putchar_keep_positions(unsigned char c)
+{
+    unsigned int addr = 0x2000 + input_y * 32 + input_x;
 
     PPU.vram.address = addr >> 8;
     PPU.vram.address = addr & 0xFF;
@@ -255,19 +260,6 @@ void putchar_xy(unsigned char c, unsigned char x, unsigned char y)
 
     // Reset scroll.
     set_scroll(0, 0);
-}
-
-
-void putchar(unsigned char c)
-{
-    putchar_xy(c, input_x, input_y);
-    shift_positions(&input_x, &input_y);
-}
-
-
-void putchar_keep_positions(unsigned char c)
-{
-    putchar_xy(c, input_x, input_y);
 }
 
 
@@ -287,14 +279,6 @@ void cursor_update(void)
 }
 
 
-void cursor_move(unsigned char x, unsigned char y)
-{
-    cursor_x = x * 8;
-    cursor_y = y * 8;
-    cursor_update();
-}
-
-
 void cursor_invert_color(void)
 {
     cursor_palette ^= 0x03;
@@ -305,7 +289,6 @@ void cursor_invert_color(void)
 void joypad_load_states(void)
 {
     unsigned char i = 0;
-    unsigned char tmp;
 
     // Polling joypad.
     JOYPAD[0] = 0x01;
