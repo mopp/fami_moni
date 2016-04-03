@@ -55,7 +55,6 @@ void putchar(unsigned char);
 void putchar_keep_positions(unsigned char);
 void draw_sprite(unsigned char, unsigned char, unsigned char, unsigned char, unsigned char);
 void cursor_update(void);
-void cursor_invert_color(void);
 void joypad_load_states(void);
 unsigned char joypad_get_event(unsigned char);
 
@@ -91,7 +90,8 @@ int main(void)
         // Blink corsor.
         ++blink_counter;
         if (blink_counter == 30) {
-            cursor_invert_color();
+            cursor_palette ^= 0x03;
+            cursor_update();
             blink_counter = 0;
         }
 
@@ -240,17 +240,6 @@ unsigned char shift_positions(unsigned char* x, unsigned char* y)
 }
 
 
-void unshift_positions(unsigned char* x, unsigned char* y)
-{
-    if ((*x == 0) && (*y != 1)) {
-        *y--;
-        *x = 31;
-    } else {
-        --*x;
-    }
-}
-
-
 void puts(unsigned char* str)
 {
     unsigned char cnt = 0;
@@ -308,13 +297,6 @@ void draw_sprite(unsigned char sprite_number, unsigned char tile_number, unsigne
 void cursor_update(void)
 {
     draw_sprite(SPRITE_CURSOR, '_', cursor_x * 8, cursor_y * 8, cursor_palette);
-}
-
-
-void cursor_invert_color(void)
-{
-    cursor_palette ^= 0x03;
-    cursor_update();
 }
 
 
