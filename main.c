@@ -14,10 +14,10 @@ unsigned char const PALETTES[] = {
     0x0F, 0x0A, 0x1A, 0x2A,
 };
 
-unsigned char const* ENABLE_CHARS = "0123456789ABCDEF;";
+unsigned char const* ENABLE_CHARS = "0123456789ABCDEF?/.* ;";
 #define PROMPT_CHAR '>'
 #define ENTER_CHAR ';'
-#define ENABLE_CHARS_SIZE (17 - 1)
+#define ENABLE_CHARS_SIZE (22 - 1)
 
 #define SPRITE_ATTR_V_INVERSE 0x80
 #define SPRITE_ATTR_H_INVERSE 0x40
@@ -49,7 +49,6 @@ void init_ppu(void);
 void set_scroll(unsigned char, unsigned char);
 unsigned char newline_positions(unsigned char*, unsigned char*);
 unsigned char shift_positions(unsigned char*, unsigned char*);
-void unshift_positions(unsigned char*, unsigned char*);
 void puts(unsigned char*);
 void putchar(unsigned char);
 void putchar_keep_positions(unsigned char);
@@ -57,6 +56,7 @@ void draw_sprite(unsigned char, unsigned char, unsigned char, unsigned char, uns
 void cursor_update(void);
 void joypad_load_states(void);
 unsigned char joypad_get_event(unsigned char);
+void execute_command(unsigned char*);
 
 
 int main(void)
@@ -125,7 +125,7 @@ int main(void)
                 input_buffer_index = 0;
 
                 newline_positions(&input_x, &input_y);
-                puts(input_buffer);
+                execute_command(input_buffer);
 
                 // Synchronize position.
                 cursor_y = input_y;
@@ -336,5 +336,82 @@ unsigned char joypad_get_event(unsigned char button)
         }
 
         return JOYPAD_EVENT_RELEASING;
+    }
+}
+
+
+unsigned int atoi(unsigned char const* str)
+{
+    /* 16^3 16^2 16^1 16^0 */
+    /* 1111 1111 1111 1111 */
+    unsigned char tmp;
+    unsigned char i;
+    unsigned int n = 0;
+    for (i = 0; i < 4; ++i) {
+        tmp = (str[i] - '0');
+        if (9 < tmp) {
+            tmp = (10 + str[i] - 'A');
+        }
+        n += (tmp << ((3 - i) * 4));
+    }
+
+    return n;
+}
+
+
+void itoa(unsigned char* buf, unsigned int n)
+{
+    unsigned char tmp;
+    unsigned char i;
+    for (i = 0; i < 4; ++i) {
+        tmp = (n >> ((3 - i) * 4)) & 0xF;
+
+        if (tmp < 9) {
+            *buf = '0' + tmp;
+        } else {
+            *buf = 'A' + (tmp - 10);
+        }
+
+        ++buf;
+    }
+    *buf = '\0';
+}
+
+
+void execute_command(unsigned char* str)
+{
+    static unsigned int addr = 0x400;
+    unsigned char tmp;
+    unsigned char i;
+    unsigned char cmd;
+    unsigned char buf[5];
+
+    if ((*str != '*') && (*str != '/') && (*str != '.') && (*str != '*')) {
+        // Head part is addr
+        addr = atoi(str);
+        cmd = str[4];
+    } else {
+        cmd = str[0];
+    }
+
+    switch (cmd) {
+        case '?':
+            // Print value at given addr.
+            itoa(buf, *((unsigned char*)addr));
+            puts(buf);
+            break;
+        case '/':
+            // Write value at given addr.
+            // After that increment addr.
+            break;
+        case '.':
+            // Write value at given addr.
+            break;
+        case '*':
+            // Execute program from given addr.
+            break;
+        default:
+            // Failed executing.
+            puts(str);
     }
 }
