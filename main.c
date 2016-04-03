@@ -60,6 +60,7 @@ void joypad_load_states(void);
 unsigned char joypad_get_event(unsigned char);
 unsigned int atoi(unsigned char const*, unsigned char);
 void itoa(unsigned char*, unsigned int, unsigned char);
+unsigned char is_hex_char(unsigned char);
 void execute_command(unsigned char*);
 
 
@@ -384,6 +385,12 @@ void itoa(unsigned char* buf, unsigned int n, unsigned char len)
 }
 
 
+unsigned char is_hex_char(unsigned char c)
+{
+    return (('0' <= c) && (c <= '9')) ? (1) : (0);
+}
+
+
 void execute_command(unsigned char* str)
 {
     static unsigned int addr = 0x400;
@@ -392,11 +399,19 @@ void execute_command(unsigned char* str)
     unsigned char cmd;
     unsigned char buf[5];
 
-    if ((*str != '?') && (*str != '/') && (*str != '.') && (*str != '*')) {
+    if (is_hex_char(str[0]) == 1) {
         // Head part is addr
-        addr = atoi(str, 4);
-        cmd = str[4];
-        str += 5;
+        if (is_hex_char(str[2]) == 0) {
+            // Relative addressing.
+            addr = (addr & 0xFF00) | (atoi(str, 2) & 0x00FF);
+            cmd = str[2];
+            str = &str[3];
+        } else {
+            // Absolute addressing.
+            addr = atoi(str, 4);
+            cmd = str[4];
+            str = &str[5];
+        }
     } else {
         // Head part is command.
         cmd = str[0];
