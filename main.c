@@ -394,6 +394,7 @@ unsigned char is_hex_char(unsigned char c)
 void execute_command(unsigned char* str)
 {
     static unsigned int addr = 0x400;
+    void (*func_ptr)();
     unsigned int len;
     unsigned char i;
     unsigned char cmd;
@@ -451,6 +452,8 @@ void execute_command(unsigned char* str)
             break;
         case '*':
             // Execute program from given addr.
+            func_ptr = (void (*)())addr;
+            func_ptr();
             break;
         default:
             // Failed executing.
