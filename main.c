@@ -50,7 +50,8 @@ void init_ppu(void);
 void set_scroll(unsigned char, unsigned char);
 unsigned char newline_positions(unsigned char*, unsigned char*);
 unsigned char shift_positions(unsigned char*, unsigned char*);
-void puts(unsigned char const*);
+void print(unsigned char const*);
+void println(unsigned char const*);
 void putchar(unsigned char);
 void putchar_keep_positions(unsigned char);
 void draw_sprite(unsigned char, unsigned char, unsigned char, unsigned char, unsigned char);
@@ -243,12 +244,18 @@ unsigned char shift_positions(unsigned char* x, unsigned char* y)
 }
 
 
-void puts(unsigned char const* str)
+void print(unsigned char const* str)
 {
     while (*str != '\0') {
         putchar(*str);
         ++str;
     }
+}
+
+
+void println(unsigned char const* str)
+{
+    print(str);
     newline_positions(&input_x, &input_y);
 }
 
@@ -337,19 +344,22 @@ unsigned int atoi(unsigned char const* str)
 {
     /* 16^3 16^2 16^1 16^0 */
     /* 1111 1111 1111 1111 */
-    unsigned char tmp;
-    unsigned char i;
+    unsigned int tmp;
+    unsigned char len;
+    unsigned char i = 0;
     unsigned int n = 0;
-    for (i = 0; i < 4; ++i) {
-        if (str[i] == '\0') {
-            return n;
-        }
 
+    while ((i < 4) && (str[i] != '\0')) {
+        ++i;
+    }
+
+    len = i;
+    for (i = 0; i < len; ++i) {
         tmp = (str[i] - '0');
         if (9 < tmp) {
             tmp = (10 + str[i] - 'A');
         }
-        n += (tmp << ((3 - i) * 4));
+        n += (tmp << ((len - i - 1) * 4));
     }
 
     return n;
@@ -363,7 +373,7 @@ void itoa(unsigned char* buf, unsigned int n, unsigned char len)
     for (i = 0; i < len; ++i) {
         tmp = (n >> ((len - 1 - i) * 4)) & 0xF;
 
-        if (tmp < 9) {
+        if (tmp <= 9) {
             *buf = '0' + tmp;
         } else {
             *buf = 'A' + (tmp - 10);
@@ -378,17 +388,18 @@ void itoa(unsigned char* buf, unsigned int n, unsigned char len)
 void execute_command(unsigned char* str)
 {
     static unsigned int addr = 0x400;
-    unsigned char tmp;
+    unsigned int len;
     unsigned char i;
     unsigned char cmd;
     unsigned char buf[5];
 
-    if ((*str != '*') && (*str != '/') && (*str != '.') && (*str != '*')) {
+    if ((*str != '?') && (*str != '/') && (*str != '.') && (*str != '*')) {
         // Head part is addr
         addr = atoi(str);
         cmd = str[4];
         str += 5;
     } else {
+        // Head part is command.
         cmd = str[0];
         ++str;
     }
@@ -396,8 +407,18 @@ void execute_command(unsigned char* str)
     switch (cmd) {
         case '?':
             // Print value at given addr.
-            itoa(buf, *((unsigned char*)addr), 2);
-            puts(buf);
+            // After that increment addr.
+            len = addr + ((*str == '\0') ? (1) : (atoi(str)));
+            itoa(buf, addr, 4);
+            print(buf);
+            putchar(':');
+            while (addr < len) {
+                itoa(buf, *((unsigned char*)addr), 2);
+                print(buf);
+                putchar(' ');
+                ++addr;
+            }
+            putchar('\n');
             break;
         case '/':
             // Write value at given addr.
@@ -413,6 +434,6 @@ void execute_command(unsigned char* str)
             break;
         default:
             // Failed executing.
-            puts(MSG_COMMAND_FAILED);
+            println(MSG_COMMAND_FAILED);
     }
 }
