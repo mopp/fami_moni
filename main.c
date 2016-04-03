@@ -390,6 +390,7 @@ void execute_command(unsigned char* str)
         // Head part is addr
         addr = atoi(str);
         cmd = str[4];
+        str += 5;
     } else {
         cmd = str[0];
     }
@@ -403,6 +404,8 @@ void execute_command(unsigned char* str)
         case '/':
             // Write value at given addr.
             // After that increment addr.
+            *((unsigned char*)addr) = atoi(str) & 0xFF;
+            ++addr;
             break;
         case '.':
             // Write value at given addr.
