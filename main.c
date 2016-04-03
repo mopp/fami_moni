@@ -98,6 +98,7 @@ int main(void)
         // Input character.
         waitvblank();
         if (joypad_get_event(JOYPAD_LEFT) == JOYPAD_EVENT_PRESSED) {
+            // Show prev character.
             if (current_char_index == 0) {
                 current_char_index = ENABLE_CHARS_SIZE;
             } else {
@@ -105,6 +106,7 @@ int main(void)
             }
             putchar_keep_positions(ENABLE_CHARS[current_char_index]);
         } else if (joypad_get_event(JOYPAD_RIGHT) == JOYPAD_EVENT_PRESSED) {
+            // Show next character.
             if (current_char_index == ENABLE_CHARS_SIZE) {
                 current_char_index = 0;
             } else {
@@ -129,6 +131,7 @@ int main(void)
                 cursor_y = input_y;
                 cursor_x = 1;
 
+                // Print newline prompt.
                 waitvblank();
                 putchar(PROMPT_CHAR);
             } else {
@@ -136,6 +139,7 @@ int main(void)
                 input_buffer[input_buffer_index] = ENABLE_CHARS[current_char_index];
                 ++input_buffer_index;
 
+                // Prepare for inputting next character.
                 shift_positions(&input_x, &input_y);
                 shift_positions(&cursor_x, &cursor_y);
             }
