@@ -50,6 +50,7 @@ void set_scroll(unsigned char, unsigned char);
 unsigned char newline_positions(unsigned char*, unsigned char*);
 unsigned char shift_positions(unsigned char*, unsigned char*);
 void unshift_positions(unsigned char*, unsigned char*);
+void puts(unsigned char*);
 void putchar(unsigned char);
 void putchar_keep_positions(unsigned char);
 void draw_sprite(unsigned char, unsigned char, unsigned char, unsigned char, unsigned char);
@@ -113,13 +114,20 @@ int main(void)
         } else if (joypad_get_event(JOYPAD_A) == JOYPAD_EVENT_PRESSED) {
             input_char = ENABLE_CHARS[current_char_index];
             if (input_char == ENTER_CHAR) {
+                if (input_buffer_index == 0) {
+                    continue;
+                }
+
                 // Inputting line is finished.
                 input_buffer[input_buffer_index] = '\0';
                 input_buffer_index = 0;
 
                 newline_positions(&input_x, &input_y);
-                newline_positions(&cursor_x, &cursor_y);
-                ++cursor_x;
+                puts(input_buffer);
+
+                // Synchronize position.
+                cursor_y = input_y;
+                cursor_x = 1;
 
                 waitvblank();
                 putchar(PROMPT_CHAR);
@@ -243,23 +251,47 @@ void unshift_positions(unsigned char* x, unsigned char* y)
 }
 
 
+void puts(unsigned char* str)
+{
+    unsigned char cnt = 0;
+    waitvblank();
+
+    while (*str != '\0') {
+        ++cnt;
+        if ((cnt % 4) == 0) {
+            waitvblank();
+        }
+
+        putchar(*str);
+        ++str;
+    }
+    newline_positions(&input_x, &input_y);
+}
+
+
 void putchar(unsigned char c)
 {
-    putchar_keep_positions(c);
-    shift_positions(&input_x, &input_y);
+    if (c == '\n') {
+        newline_positions(&input_x, &input_y);
+    } else {
+        putchar_keep_positions(c);
+        shift_positions(&input_x, &input_y);
+    }
 }
 
 
 void putchar_keep_positions(unsigned char c)
 {
-    unsigned int addr = 0x2000 + input_y * 32 + input_x;
+    if (c != '\n') {
+        unsigned int addr = 0x2000 + input_y * 32 + input_x;
 
-    PPU.vram.address = addr >> 8;
-    PPU.vram.address = addr & 0xFF;
-    PPU.vram.data = c;
+        PPU.vram.address = addr >> 8;
+        PPU.vram.address = addr & 0xFF;
+        PPU.vram.data = c;
 
-    // Reset scroll.
-    set_scroll(0, 0);
+        // Reset scroll.
+        set_scroll(0, 0);
+    }
 }
 
 
