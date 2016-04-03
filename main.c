@@ -14,7 +14,8 @@ unsigned char const PALETTES[] = {
     0x0F, 0x0A, 0x1A, 0x2A,
 };
 
-unsigned char const* ENABLE_CHARS = "0123456789ABCDEF?/.* ;";
+unsigned char const* MSG_COMMAND_FAILED = "Invalid command.";
+unsigned char const* ENABLE_CHARS = "0123456789ABCDEF /.*?;";
 #define PROMPT_CHAR '>'
 #define ENTER_CHAR ';'
 #define ENABLE_CHARS_SIZE (22 - 1)
@@ -49,13 +50,15 @@ void init_ppu(void);
 void set_scroll(unsigned char, unsigned char);
 unsigned char newline_positions(unsigned char*, unsigned char*);
 unsigned char shift_positions(unsigned char*, unsigned char*);
-void puts(unsigned char*);
+void puts(unsigned char const*);
 void putchar(unsigned char);
 void putchar_keep_positions(unsigned char);
 void draw_sprite(unsigned char, unsigned char, unsigned char, unsigned char, unsigned char);
 void cursor_update(void);
 void joypad_load_states(void);
 unsigned char joypad_get_event(unsigned char);
+unsigned int atoi(unsigned char const*);
+void itoa(unsigned char*, unsigned int, unsigned char);
 void execute_command(unsigned char*);
 
 
@@ -75,7 +78,6 @@ int main(void)
         ++i;
     }
 
-    waitvblank();
     putchar(PROMPT_CHAR);
     putchar_keep_positions(ENABLE_CHARS[current_char_index]);
 
@@ -96,7 +98,6 @@ int main(void)
         }
 
         // Input character.
-        waitvblank();
         if (joypad_get_event(JOYPAD_LEFT) == JOYPAD_EVENT_PRESSED) {
             // Show prev character.
             if (current_char_index == 0) {
@@ -132,7 +133,6 @@ int main(void)
                 cursor_x = 1;
 
                 // Print newline prompt.
-                waitvblank();
                 putchar(PROMPT_CHAR);
             } else {
                 // Input character is decided.
@@ -146,7 +146,6 @@ int main(void)
 
             cursor_update();
             current_char_index = 0;
-            waitvblank();
             putchar_keep_positions(ENABLE_CHARS[current_char_index]);
         }
     }
@@ -244,17 +243,9 @@ unsigned char shift_positions(unsigned char* x, unsigned char* y)
 }
 
 
-void puts(unsigned char* str)
+void puts(unsigned char const* str)
 {
-    unsigned char cnt = 0;
-    waitvblank();
-
     while (*str != '\0') {
-        ++cnt;
-        if ((cnt % 4) == 0) {
-            waitvblank();
-        }
-
         putchar(*str);
         ++str;
     }
@@ -277,6 +268,8 @@ void putchar_keep_positions(unsigned char c)
 {
     if (c != '\n') {
         unsigned int addr = 0x2000 + input_y * 32 + input_x;
+
+        waitvblank();
 
         PPU.vram.address = addr >> 8;
         PPU.vram.address = addr & 0xFF;
@@ -348,6 +341,10 @@ unsigned int atoi(unsigned char const* str)
     unsigned char i;
     unsigned int n = 0;
     for (i = 0; i < 4; ++i) {
+        if (str[i] == '\0') {
+            return n;
+        }
+
         tmp = (str[i] - '0');
         if (9 < tmp) {
             tmp = (10 + str[i] - 'A');
@@ -359,12 +356,12 @@ unsigned int atoi(unsigned char const* str)
 }
 
 
-void itoa(unsigned char* buf, unsigned int n)
+void itoa(unsigned char* buf, unsigned int n, unsigned char len)
 {
     unsigned char tmp;
     unsigned char i;
-    for (i = 0; i < 4; ++i) {
-        tmp = (n >> ((3 - i) * 4)) & 0xF;
+    for (i = 0; i < len; ++i) {
+        tmp = (n >> ((len - 1 - i) * 4)) & 0xF;
 
         if (tmp < 9) {
             *buf = '0' + tmp;
@@ -393,12 +390,13 @@ void execute_command(unsigned char* str)
         str += 5;
     } else {
         cmd = str[0];
+        ++str;
     }
 
     switch (cmd) {
         case '?':
             // Print value at given addr.
-            itoa(buf, *((unsigned char*)addr));
+            itoa(buf, *((unsigned char*)addr), 2);
             puts(buf);
             break;
         case '/':
@@ -415,6 +413,6 @@ void execute_command(unsigned char* str)
             break;
         default:
             // Failed executing.
-            puts(str);
+            puts(MSG_COMMAND_FAILED);
     }
 }
