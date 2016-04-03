@@ -52,13 +52,13 @@ unsigned char newline_positions(unsigned char*, unsigned char*);
 unsigned char shift_positions(unsigned char*, unsigned char*);
 void print(unsigned char const*);
 void println(unsigned char const*);
-void putchar(unsigned char);
-void putchar_keep_positions(unsigned char);
+void printc(unsigned char);
+void printc_keep_positions(unsigned char);
 void draw_sprite(unsigned char, unsigned char, unsigned char, unsigned char, unsigned char);
 void cursor_update(void);
 void joypad_load_states(void);
 unsigned char joypad_get_event(unsigned char);
-unsigned int atoi(unsigned char const*);
+unsigned int atoi(unsigned char const*, unsigned char);
 void itoa(unsigned char*, unsigned int, unsigned char);
 void execute_command(unsigned char*);
 
@@ -79,8 +79,8 @@ int main(void)
         ++i;
     }
 
-    putchar(PROMPT_CHAR);
-    putchar_keep_positions(ENABLE_CHARS[current_char_index]);
+    printc(PROMPT_CHAR);
+    printc_keep_positions(ENABLE_CHARS[current_char_index]);
 
     // Main loop.
     while (1) {
@@ -106,7 +106,7 @@ int main(void)
             } else {
                 --current_char_index;
             }
-            putchar_keep_positions(ENABLE_CHARS[current_char_index]);
+            printc_keep_positions(ENABLE_CHARS[current_char_index]);
         } else if (joypad_get_event(JOYPAD_RIGHT) == JOYPAD_EVENT_PRESSED) {
             // Show next character.
             if (current_char_index == ENABLE_CHARS_SIZE) {
@@ -114,7 +114,7 @@ int main(void)
             } else {
                 ++current_char_index;
             }
-            putchar_keep_positions(ENABLE_CHARS[current_char_index]);
+            printc_keep_positions(ENABLE_CHARS[current_char_index]);
         } else if (joypad_get_event(JOYPAD_A) == JOYPAD_EVENT_PRESSED) {
             input_char = ENABLE_CHARS[current_char_index];
             if (input_char == ENTER_CHAR) {
@@ -134,7 +134,7 @@ int main(void)
                 cursor_x = 1;
 
                 // Print newline prompt.
-                putchar(PROMPT_CHAR);
+                printc(PROMPT_CHAR);
             } else {
                 // Input character is decided.
                 input_buffer[input_buffer_index] = ENABLE_CHARS[current_char_index];
@@ -147,7 +147,7 @@ int main(void)
 
             cursor_update();
             current_char_index = 0;
-            putchar_keep_positions(ENABLE_CHARS[current_char_index]);
+            printc_keep_positions(ENABLE_CHARS[current_char_index]);
         }
     }
 
@@ -247,7 +247,7 @@ unsigned char shift_positions(unsigned char* x, unsigned char* y)
 void print(unsigned char const* str)
 {
     while (*str != '\0') {
-        putchar(*str);
+        printc(*str);
         ++str;
     }
 }
@@ -260,18 +260,18 @@ void println(unsigned char const* str)
 }
 
 
-void putchar(unsigned char c)
+void printc(unsigned char c)
 {
     if (c == '\n') {
         newline_positions(&input_x, &input_y);
     } else {
-        putchar_keep_positions(c);
+        printc_keep_positions(c);
         shift_positions(&input_x, &input_y);
     }
 }
 
 
-void putchar_keep_positions(unsigned char c)
+void printc_keep_positions(unsigned char c)
 {
     if (c != '\n') {
         unsigned int addr = 0x2000 + input_y * 32 + input_x;
@@ -340,20 +340,19 @@ unsigned char joypad_get_event(unsigned char button)
 }
 
 
-unsigned int atoi(unsigned char const* str)
+unsigned int atoi(unsigned char const* str, unsigned char len)
 {
     /* 16^3 16^2 16^1 16^0 */
     /* 1111 1111 1111 1111 */
     unsigned int tmp;
-    unsigned char len;
     unsigned char i = 0;
     unsigned int n = 0;
 
-    while ((i < 4) && (str[i] != '\0')) {
-        ++i;
-    }
+    // while ((i < 4) && (str[i] != '\0')) {
+    //     ++i;
+    // }
+    // len = i;
 
-    len = i;
     for (i = 0; i < len; ++i) {
         tmp = (str[i] - '0');
         if (9 < tmp) {
@@ -395,7 +394,7 @@ void execute_command(unsigned char* str)
 
     if ((*str != '?') && (*str != '/') && (*str != '.') && (*str != '*')) {
         // Head part is addr
-        addr = atoi(str);
+        addr = atoi(str, 4);
         cmd = str[4];
         str += 5;
     } else {
@@ -408,26 +407,32 @@ void execute_command(unsigned char* str)
         case '?':
             // Print value at given addr.
             // After that increment addr.
-            len = addr + ((*str == '\0') ? (1) : (atoi(str)));
+            len = addr + ((*str == '\0') ? (1) : (atoi(str, 1)));
             itoa(buf, addr, 4);
             print(buf);
-            putchar(':');
+            print(": ");
             while (addr < len) {
                 itoa(buf, *((unsigned char*)addr), 2);
                 print(buf);
-                putchar(' ');
+                printc(' ');
                 ++addr;
             }
-            putchar('\n');
+            printc('\n');
             break;
         case '/':
-            // Write value at given addr.
-            // After that increment addr.
-            *((unsigned char*)addr) = atoi(str) & 0xFF;
-            ++addr;
-            break;
         case '.':
             // Write value at given addr.
+            // After that increment addr if command if '/'.
+            while (1) {
+                *((unsigned char*)addr) = atoi(str, 2) & 0xFF;
+                if (str[2] == '\0') {
+                    break;
+                }
+                str += 3;
+                if (cmd == '/') {
+                    ++addr;
+                }
+            }
             break;
         case '*':
             // Execute program from given addr.
